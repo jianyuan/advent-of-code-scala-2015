@@ -11,12 +11,14 @@ object Day6 extends App {
 
   case class Coordinate(x: Int, y: Int)
 
-  abstract class Instruction(from: Coordinate, to: Coordinate, mutator: Light => Light) {
+  abstract class Instruction(from: Coordinate, to: Coordinate) {
+    def mutate(light: Light): Light
+
     def apply(state: Array[Array[Light]]): Unit = {
       for {
         x <- from.x to to.x
         y <- from.y to to.y
-      } state(x)(y) = mutator(state(x)(y))
+      } state(x)(y) = mutate(state(x)(y))
     }
   }
 
@@ -24,9 +26,8 @@ object Day6 extends App {
     val regex = """(turn on|toggle|turn off) (\d+),(\d+) through (\d+),(\d+)""".r
 
     def unapply(in: String): Option[Instruction] = in match {
-      case Instruction.regex(instruction, x1, y1, x2, y2) =>
-        val from = Coordinate(x1.toInt, y1.toInt)
-        val to = Coordinate(x2.toInt, y2.toInt)
+      case regex(instruction, x1, y1, x2, y2) =>
+        val (from, to) = (Coordinate(x1.toInt, y1.toInt), Coordinate(x2.toInt, y2.toInt))
         instruction match {
           case "turn on" => Some(TurnOn(from, to))
           case "toggle" => Some(Toggle(from, to))
@@ -37,14 +38,21 @@ object Day6 extends App {
     }
   }
 
-  case class TurnOn(from: Coordinate, to: Coordinate) extends Instruction(
-    from, to, light => Light(on = true, brightness = light.brightness + 1))
+  case class TurnOn(from: Coordinate, to: Coordinate) extends Instruction(from, to) {
+    def mutate(light: Light): Light = Light(on = true, brightness = light.brightness + 1)
+  }
 
-  case class Toggle(from: Coordinate, to: Coordinate) extends Instruction(
-    from, to, light => Light(on = !light.on, brightness = light.brightness + 2))
+  case class Toggle(from: Coordinate, to: Coordinate) extends Instruction(from, to) {
+    def mutate(light: Light): Light = Light(on = !light.on, brightness = light.brightness + 2)
+  }
 
-  case class TurnOff(from: Coordinate, to: Coordinate) extends Instruction(
-    from, to, light => Light(on = false, brightness = if (light.brightness > 0) light.brightness - 1 else 0))
+  case class TurnOff(from: Coordinate, to: Coordinate) extends Instruction(from, to) {
+    def mutate(light: Light): Light =
+      Light(
+        on = false,
+        brightness = if (light.brightness > 0) light.brightness - 1 else 0
+      )
+  }
 
   val input = Source.fromURL(getClass.getResource("day6.txt")).getLines().toSeq
 
