@@ -5,10 +5,14 @@ import scala.io.Source
  */
 object Day6 extends App {
 
+  case class Light(on: Boolean = false, brightness: Int = 0) {
+    require(brightness >= 0)
+  }
+
   case class Coordinate(x: Int, y: Int)
 
-  abstract class Instruction(from: Coordinate, to: Coordinate, mutator: Boolean => Boolean) {
-    def apply(state: Array[Array[Boolean]]): Unit = {
+  abstract class Instruction(from: Coordinate, to: Coordinate, mutator: Light => Light) {
+    def apply(state: Array[Array[Light]]): Unit = {
       for {
         x <- from.x to to.x
         y <- from.y to to.y
@@ -33,20 +37,27 @@ object Day6 extends App {
     }
   }
 
-  case class TurnOn(from: Coordinate, to: Coordinate) extends Instruction(from, to, _ => true)
+  case class TurnOn(from: Coordinate, to: Coordinate) extends Instruction(
+    from, to, light => Light(on = true, brightness = light.brightness + 1))
 
-  case class Toggle(from: Coordinate, to: Coordinate) extends Instruction(from, to, state => !state)
+  case class Toggle(from: Coordinate, to: Coordinate) extends Instruction(
+    from, to, light => Light(on = !light.on, brightness = light.brightness + 2))
 
-  case class TurnOff(from: Coordinate, to: Coordinate) extends Instruction(from, to, _ => false)
+  case class TurnOff(from: Coordinate, to: Coordinate) extends Instruction(
+    from, to, light => Light(on = false, brightness = if (light.brightness > 0) light.brightness - 1 else 0))
 
   val input = Source.fromURL(getClass.getResource("day6.txt")).getLines().toSeq
 
   val instructions: Seq[Instruction] = input.flatMap(Instruction.unapply)
 
-  val state = Array.ofDim[Boolean](1000, 1000)
+  val state = Array.fill(1000, 1000)(Light())
+
   instructions.foreach(_ (state))
 
-  val lightsLit = state.map(_.count(identity)).sum
+  val lightsLit = state.map(_.count(_.on)).sum
   println(s"Number of lights lit: $lightsLit")
+
+  val totalBrightness = state.map(_.map(_.brightness).sum).sum
+  println(s"Total brightness: $totalBrightness")
 
 }
