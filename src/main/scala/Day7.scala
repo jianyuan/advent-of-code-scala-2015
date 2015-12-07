@@ -1,15 +1,12 @@
-import scala.collection.mutable
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
 /**
- * Created by jianyuanlee on 07/12/2015.
+ * Created by Jian Yuan on 07/12/2015.
  */
 object Day7 extends App {
 
   sealed trait Expr
-
-  case class Set(variable: Variable, expr: Expr) extends Expr
 
   case class Variable(name: String) extends Expr
 
@@ -28,64 +25,53 @@ object Day7 extends App {
   val wireRegex = """(\w+) -> (\w+)""".r
   val andRegex = """(\w+) AND (\w+) -> (\w+)""".r
   val orRegex = """(\w+) OR (\w+) -> (\w+)""".r
-  val lshiftRegex = """(\w+) LSHIFT (\d+) -> (\w+)""".r
-  val rshiftRegex = """(\w+) RSHIFT (\d+) -> (\w+)""".r
+  val lShiftRegex = """(\w+) LSHIFT (\d+) -> (\w+)""".r
+  val rShiftRegex = """(\w+) RSHIFT (\d+) -> (\w+)""".r
   val notRegex = """NOT (\w+) -> (\w+)""".r
 
-  def constOrVariable(expr: String): Expr = Try(expr.toInt) match {
+  def constOrVariable(rawExpr: String): Expr = Try(rawExpr.toInt) match {
     case Success(value) => Const(value)
-    case Failure(_) => Variable(expr)
+    case Failure(_) => Variable(rawExpr)
   }
 
-  def parseInstructions(instructions: List[String]): List[Expr] = {
-    instructions.map {
-      case wireRegex(from, to) => Set(Variable(to), constOrVariable(from))
-      case andRegex(left, right, to) => Set(Variable(to), And(constOrVariable(left), constOrVariable(right)))
-      case orRegex(left, right, to) => Set(Variable(to), Or(constOrVariable(left), constOrVariable(right)))
-      case lshiftRegex(from, by, to) => Set(Variable(to), LShift(constOrVariable(from), by.toInt))
-      case rshiftRegex(from, by, to) => Set(Variable(to), RShift(constOrVariable(from), by.toInt))
-      case notRegex(from, to) => Set(Variable(to), Not(constOrVariable(from)))
-    }
-  }
+  def parseInstructions(rawInstructions: List[String]): Map[String, Expr] = rawInstructions.map {
+    case wireRegex(from, to) => to -> constOrVariable(from)
+    case andRegex(left, right, to) => to -> And(constOrVariable(left), constOrVariable(right))
+    case orRegex(left, right, to) => to -> Or(constOrVariable(left), constOrVariable(right))
+    case lShiftRegex(from, by, to) => to -> LShift(constOrVariable(from), by.toInt)
+    case rShiftRegex(from, by, to) => to -> RShift(constOrVariable(from), by.toInt)
+    case notRegex(from, to) => to -> Not(constOrVariable(from))
+  }.toMap
 
-  def createExprMap(instructions: List[Expr]): mutable.Map[String, Expr] = {
-    val table = mutable.Map.empty[String, Expr]
-    instructions.foreach {
-      case Set(Variable(id), expr) => table(id) = expr
+  def evaluate(wires: Map[String, Expr], expr: Expr): Int = {
+    val mutWires = scala.collection.mutable.Map() ++ wires
+
+    def eval(expr: Expr): Int = expr match {
+      case Const(value) => value
+      case Variable(name) =>
+        val value = eval(mutWires(name))
+        mutWires(name) = Const(value)
+        value
+      case Not(e) => ~eval(e) & 0xffff
+      case And(l, r) => eval(l) & eval(r)
+      case Or(l, r) => eval(l) | eval(r)
+      case LShift(e, by) => (eval(e) << by) & 0xffff
+      case RShift(e, by) => eval(e) >> by
     }
-    table
+
+    eval(expr)
   }
 
   val rawInstructions = Source.fromURL(getClass.getResource("day7.txt")).getLines().toList
 
-  val instructions: List[Expr] = parseInstructions(rawInstructions)
-
-  //  rawInstructions zip instructions foreach println
-
-  val vars = createExprMap(instructions)
-
-  val bitMask = 0xffff
-
-  def evaluate(vars: mutable.Map[String, Expr], expr: Expr): Int = expr match {
-    case Const(value) => value
-    case Variable(name) =>
-      val value = evaluate(vars, vars(name))
-      vars(name) = Const(value)
-      value
-    case Not(e) => ~evaluate(vars, e) & bitMask
-    case And(l, r) => evaluate(vars, l) & evaluate(vars, r)
-    case Or(l, r) => evaluate(vars, l) | evaluate(vars, r)
-    case LShift(e, by) => (evaluate(vars, e) << by) & bitMask
-    case RShift(e, by) => (evaluate(vars, e) >> by) & bitMask
-  }
+  val instructions: Map[String, Expr] = parseInstructions(rawInstructions)
 
   // Part 1
-  val aValue = evaluate(vars, Variable("a"))
-  println(s"a = $aValue}")
+  val a = evaluate(instructions, Variable("a"))
+  println(s"a (Part 1) = $a")
 
   // Part 2
-  val vars2 = createExprMap(instructions)
-  vars2("b") = Const(aValue)
-  val newAValue = evaluate(vars2, Variable("a"))
-  println(s"a2 = $newAValue}")
+  val newInstructions = instructions.updated("b", Const(a))
+  val newA = evaluate(newInstructions, Variable("a"))
+  println(s"a (Part 2) = $newA")
 }
