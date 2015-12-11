@@ -32,12 +32,7 @@ object Day11 extends App {
     case Seq(a, b, c) => b - a == 1 && c - b == 1
   }
 
-  def nextPasswords(input: Seq[Int]): Stream[Seq[Int]] = {
-    lazy val passwords: Stream[Seq[Int]] = input #:: increment(input) #:: passwords
-      .zip(passwords.tail)
-      .map(password => increment(password._2))
-    passwords
-  }
+  def nextPasswords(input: Seq[Int]): Stream[Seq[Int]] = input #:: nextPasswords(increment(input))
 
   def nextPasswordsWithRules(input: Seq[Int]): Stream[Seq[Int]] = nextPasswords(input)
     .filter(hasOneIncreasingStraightOfAtLeastThreeLetters)
