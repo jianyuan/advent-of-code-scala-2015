@@ -11,7 +11,7 @@ object Day19 extends App {
   val start: String = rawStart.find(_ != "").get
 
   def enumerateReplacements(from: String, to: String, input: String): Iterator[String] = input
-    .sliding(from.size)
+    .sliding(from.length)
     .zipWithIndex
     .collect {
       case (`from`, i) => input.take(i) + to + input.drop(i + from.length)
